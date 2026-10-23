@@ -4,11 +4,13 @@
 [![Maven](https://img.shields.io/badge/Maven-3.8+-blue.svg)](https://maven.apache.org/)
 [![Gradle](https://img.shields.io/badge/Gradle-8+-02303A.svg)](https://gradle.org/)
 [![Docker](https://img.shields.io/badge/Docker-Containerization-2496ED.svg)](https://www.docker.com/)
+[![Docker Compose](https://img.shields.io/badge/Docker_Compose-v2+-blue.svg)](https://docs.docker.com/compose/)
+[![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1.svg)](https://www.mysql.com/)
 [![Trivy](https://img.shields.io/badge/Trivy-Security_Auditing-1904DA.svg)](https://trivy.dev/)
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB.svg)](https://www.python.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-20_LTS-339933.svg)](https://nodejs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-18%2F20_LTS-339933.svg)](https://nodejs.org/)
 
-This repository contains complete codebases, multi-stage Dockerfiles, security auditing configurations, environment setups, and detailed documentation for the **iVolve** engineering labs.
+This repository contains complete codebases, multi-stage Dockerfiles, security auditing configurations, environment setups, orchestration manifests, and detailed documentation for the **iVolve** engineering labs.
 
 ---
 
@@ -21,6 +23,8 @@ This repository contains complete codebases, multi-stage Dockerfiles, security a
 - [Lab 4: Docker Image Optimization and Export/Load](#-lab-4-docker-image-optimization-and-exportload)
 - [Lab 5: Docker Vulnerability Scanning with Trivy](#-lab-5-docker-image-vulnerability-scanning-with-trivy)
 - [Lab 6: Environment Variables and Resource Management](#-lab-6-docker-environment-variables-and-resource-management)
+- [Lab 7: Multi-Network Microservices, Volumes, and Bind Mounts](#-lab-7-multi-network-microservices-volumes-and-bind-mounts)
+- [Lab 8: Node.js and MySQL Stack with Docker Compose](#-lab-8-containerized-nodejs-and-mysql-stack-using-docker-compose)
 
 ---
 
@@ -70,6 +74,33 @@ This repository contains complete codebases, multi-stage Dockerfiles, security a
 │   ├── env.txt                            # Environment variable file for container2
 │   ├── app.py                             # Flask application
 │   ├── requirements.txt
+│   └── README.md
+│
+├── Lab-7-Multi-Network-Microservices/     # Lab 7: Multi-network microservices, volumes & bind mounts
+│   ├── frontend/                          # Web tier container
+│   │   ├── app.py
+│   │   ├── Dockerfile
+│   │   └── requirements.txt
+│   ├── backend/                           # API & data persistence tier container
+│   │   ├── app.py
+│   │   ├── Dockerfile
+│   │   └── requirements.txt
+│   ├── notification/                      # Notification logging tier container
+│   │   ├── app.py
+│   │   ├── Dockerfile
+│   │   └── requirements.txt
+│   ├── backend-data/                      # Host bind mount directory (messages.json)
+│   ├── run-lab7.sh                        # Automated execution script (Linux/WSL)
+│   ├── run-lab7.ps1                       # Automated execution script (Windows PowerShell)
+│   └── README.md
+│
+├── Lab-8-Docker-Compose-Node-MySQL/       # Lab 8: Full-stack Node.js + MySQL orchestration
+│   ├── frontend/                          # Static UI assets
+│   ├── Dockerfile                         # Node.js 18-alpine Dockerfile
+│   ├── docker-compose.yml                 # Compose file for app, db, network, volumes
+│   ├── package.json
+│   ├── server.js                          # Express app with MySQL connection & retry logic
+│   ├── db.js
 │   └── README.md
 │
 └── README.md
@@ -190,5 +221,57 @@ This repository contains complete codebases, multi-stage Dockerfiles, security a
 
 ---
 
+## 🌐 Lab 7: Multi-Network Microservices, Volumes, and Bind Mounts
+
+👉 **Guide**: [`Lab-7-Multi-Network-Microservices/README.md`](Lab-7-Multi-Network-Microservices/README.md)
+
+- **Services**: Frontend (`port 3000`), Backend (`port 5000`), Notification (`port 5001`).
+- **Network Isolation**:
+  - `frontend-backend` (`172.20.0.0/16`) connects Frontend and Backend.
+  - `backend-notification` (`172.21.0.0/16`) connects Backend and Notification.
+  - Frontend is completely isolated from Notification.
+- **Storage Strategies**:
+  - **Docker Named Volumes**: `backend-logs` and `notification-logs` mounted to `/app/logs`.
+  - **Host Bind Mount**: `./backend-data` mounted to `/app/data` persisting `messages.json`.
+- **Key Commands**:
+  ```bash
+  cd Lab-7-Multi-Network-Microservices
+  # Automated script
+  bash run-lab7.sh
+  # Test message flow
+  curl -s -L -X POST http://localhost:8080/send -d "message=Hello iVolve"
+  curl -s http://localhost:8080/
+  ```
+
+---
+
+## 📦 Lab 8: Containerized Node.js and MySQL Stack Using Docker Compose
+
+👉 **Guide**: [`Lab-8-Docker-Compose-Node-MySQL/README.md`](Lab-8-Docker-Compose-Node-MySQL/README.md) | **Docker Hub**: [zeyadmvtr/ivolve-app](https://hub.docker.com/r/zeyadmvtr/ivolve-app)
+
+- **Stack**: Node.js 18 Express web app + MySQL 8.0 database.
+- **Docker Compose Features**:
+  - Automatic `ivolve` database provisioning and root credentials.
+  - Health checks (`mysqladmin ping`) to guarantee database readiness before web app starts.
+  - Custom bridge network `ivolve-net` for private container networking.
+  - Persistent named volume `db_data` for `/var/lib/mysql`.
+  - Persistent named volume `app_logs` for `/app/logs` (Morgan HTTP access logs).
+- **Docker Hub Deployment**:
+  - Image built, tagged, and published to Docker Hub: `zeyadmvtr/ivolve-app:latest` and `zeyadmvtr/ivolve-app:v1.0`.
+- **Key Commands**:
+  ```bash
+  cd Lab-8-Docker-Compose-Node-MySQL
+  # Start the entire stack
+  docker compose up --build -d
+  # Verify health and readiness
+  curl http://localhost:3000/health
+  curl http://localhost:3000/ready
+  # Tag and push image
+  docker push zeyadmvtr/ivolve-app:latest
+  ```
+
+---
+
 ## 👥 Author & Repository
 - Repository: [https://github.com/zeyadmvtr/Ivolve](https://github.com/zeyadmvtr/Ivolve)
+- Docker Hub: [https://hub.docker.com/u/zeyadmvtr](https://hub.docker.com/u/zeyadmvtr)
