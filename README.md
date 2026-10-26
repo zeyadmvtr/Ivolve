@@ -9,6 +9,8 @@
 [![Trivy](https://img.shields.io/badge/Trivy-Security_Auditing-1904DA.svg)](https://trivy.dev/)
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB.svg)](https://www.python.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2F20_LTS-339933.svg)](https://nodejs.org/)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.31-326CE5.svg)](https://kubernetes.io/)
+[![Calico](https://img.shields.io/badge/Calico_CNI-v3.28-FFA500.svg)](https://www.tigera.io/project-calico/)
 
 This repository contains complete codebases, multi-stage Dockerfiles, security auditing configurations, environment setups, orchestration manifests, and detailed documentation for the **iVolve** engineering labs.
 
@@ -25,6 +27,8 @@ This repository contains complete codebases, multi-stage Dockerfiles, security a
 - [Lab 6: Environment Variables and Resource Management](#-lab-6-docker-environment-variables-and-resource-management)
 - [Lab 7: Multi-Network Microservices, Volumes, and Bind Mounts](#-lab-7-multi-network-microservices-volumes-and-bind-mounts)
 - [Lab 8: Node.js and MySQL Stack with Docker Compose](#-lab-8-containerized-nodejs-and-mysql-stack-using-docker-compose)
+- [Lab 9: Deploy Kubernetes Cluster using Kubeadm](#-lab-9-deploy-kubernetes-cluster-using-kubeadm)
+- [Lab 10: Node Isolation Using Taints and Labels in Kubernetes](#-lab-10-node-isolation-using-taints-and-labels-in-kubernetes)
 
 ---
 
@@ -101,6 +105,17 @@ This repository contains complete codebases, multi-stage Dockerfiles, security a
 │   ├── package.json
 │   ├── server.js                          # Express app with MySQL connection & retry logic
 │   ├── db.js
+│   └── README.md
+│
+├── Lab-9-Kubernetes-Kubeadm-Cluster/      # Lab 9: Multi-node K8s cluster deployment via Kubeadm
+│   ├── manifests/                         # Calico CNI, kubeadm-config, and smoke test specs
+│   ├── scripts/                           # Containerd, kubeadm, init, calico, join & verify scripts
+│   ├── Vagrantfile                        # Automated local multi-node cluster environment
+│   └── README.md
+│
+├── Lab-10-Kubernetes-Taints-and-Labels/   # Lab 10: Node isolation using taints and labels
+│   ├── manifests/                         # Untolerated, tolerated & dedicated nodeSelector specs
+│   ├── scripts/                           # Apply, test isolation & cleanup scripts
 │   └── README.md
 │
 └── README.md
@@ -268,6 +283,78 @@ This repository contains complete codebases, multi-stage Dockerfiles, security a
   curl http://localhost:3000/ready
   # Tag and push image
   docker push zeyadmvtr/ivolve-app:latest
+  ```
+
+---
+
+## ☸️ Lab 9: Deploy Kubernetes Cluster using Kubeadm
+
+👉 **Guide**: [`Lab-9-Kubernetes-Kubeadm-Cluster/README.md`](Lab-9-Kubernetes-Kubeadm-Cluster/README.md)
+
+- **Cluster Architecture**: Control Plane + Worker Nodes provisioned with `containerd` container runtime, `kubeadm`, `kubelet`, and `kubectl`.
+- **Key Milestones**:
+  1. **Container Runtime Configuration**:
+     - Swap disabled (`swapoff -a`), kernel modules `overlay` and `br_netfilter` loaded.
+     - Sysctl parameters configured (`net.bridge.bridge-nf-call-iptables = 1`, `net.ipv4.ip_forward = 1`).
+     - `containerd` configured with `SystemdCgroup = true`.
+  2. **Kubernetes v1.31 Setup**:
+     - Repository configured via official community registry `pkgs.k8s.io`.
+     - Packages installed and held (`apt-mark hold kubelet kubeadm kubectl`).
+  3. **Control Plane Initialization & Kubectl Config**:
+     - Initialized with `kubeadm init --pod-network-cidr=192.168.0.0/16`.
+     - Configured `$HOME/.kube/config` with admin credentials.
+  4. **Pod Networking with Calico CNI**:
+     - Deployed Tigera Operator & Custom Resources configuring Pod CIDR `192.168.0.0/16`.
+  5. **Worker Node Join & Verification**:
+     - Joined worker nodes using discovery token and SHA-256 cert hash.
+     - Verified all nodes in `Ready` state and core control plane pods running.
+- **Key Commands**:
+  ```bash
+  cd Lab-9-Kubernetes-Kubeadm-Cluster
+  # 1. Install Containerd & Kubeadm on all nodes
+  sudo bash scripts/01-install-containerd.sh
+  sudo bash scripts/02-install-kubeadm.sh
+  # 2. Initialize Control Plane (Master only)
+  sudo bash scripts/03-init-control-plane.sh
+  # 3. Deploy Calico CNI
+  bash scripts/04-install-calico.sh
+  # 4. Join Worker Nodes
+  sudo bash scripts/05-join-worker.sh <MASTER_IP:6443> <TOKEN> <CA_HASH>
+  # 5. Verify Cluster Status
+  bash scripts/06-verify-cluster.sh
+  ```
+
+---
+
+## 🎯 Lab 10: Node Isolation Using Taints and Labels in Kubernetes
+
+👉 **Guide**: [`Lab-10-Kubernetes-Taints-and-Labels/README.md`](Lab-10-Kubernetes-Taints-and-Labels/README.md)
+
+- **Isolation Concept**: Complete mutual node dedication combining **Taints** (repelling uninvited pods) with **Node Labels & Selectors** (attracting targeted project pods).
+- **Configuration**:
+  - **Node Taint**: `workload=ivolveApp:NoSchedule` (blocks untolerated pods).
+  - **Node Label**: `project=ivolve` (identifies worker for targeted scheduling).
+- **Validation Scenarios**:
+  1. **Untolerated Pod**: Automatically repelled and scheduled away from the tainted node.
+  2. **Tolerated Pod**: Successfully scheduled on the tainted node.
+  3. **Targeted iVolve App**: Combines `toleration` and `nodeSelector: project: ivolve` to achieve 100% dedicated node isolation.
+- **Key Commands**:
+  ```bash
+  cd Lab-10-Kubernetes-Taints-and-Labels
+  # 1. Apply taint and label to worker node
+  kubectl taint nodes <worker-node> workload=ivolveApp:NoSchedule
+  kubectl label nodes <worker-node> project=ivolve
+
+  # 2. Verify taint and label
+  kubectl describe node <worker-node> | grep -E "Labels:|Taints:" -A 3
+  kubectl get nodes --show-labels
+
+  # 3. Test isolation with automated script
+  bash scripts/02-test-isolation.sh
+
+  # 4. Remove taint and label (cleanup)
+  kubectl taint nodes <worker-node> workload=ivolveApp:NoSchedule-
+  kubectl label nodes <worker-node> project-
   ```
 
 ---

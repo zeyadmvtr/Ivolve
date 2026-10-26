@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: default-untainted-pod
+  namespace: default
+  labels:
+    app: generic-workload
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "64Mi"
+      limits:
+        cpu: "100m"
+        memory: "128Mi"
+  # Notice: No tolerations configured.
+  # This pod CANNOT be scheduled on any node tainted with workload=ivolveApp:NoSchedule.

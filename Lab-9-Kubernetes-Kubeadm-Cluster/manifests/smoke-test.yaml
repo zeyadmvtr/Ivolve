@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ivolve-smoke-test
+  namespace: default
+  labels:
+    app: smoke-test
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: smoke-test
+  template:
+    metadata:
+      labels:
+        app: smoke-test
+    spec:
+      containers:
+      - name: web
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        resources:
+          limits:
+            cpu: "100m"
+            memory: "128Mi"
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ivolve-smoke-test-svc
+  namespace: default
+spec:
+  selector:
+    app: smoke-test
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+  type: ClusterIP

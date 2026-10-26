@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ivolve-affinity-app
+  namespace: default
+  labels:
+    app: ivolve-affinity
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ivolve-affinity
+  template:
+    metadata:
+      labels:
+        app: ivolve-affinity
+    spec:
+      tolerations:
+      - key: "workload"
+        operator: "Equal"
+        value: "ivolveApp"
+        effect: "NoSchedule"
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: project
+                operator: In
+                values:
+                - ivolve
+      containers:
+      - name: web
+        image: nginx:alpine
+        ports:
+        - containerPort: 80

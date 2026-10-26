@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ivolve-dedicated-app
+  namespace: default
+  labels:
+    app: ivolve-app
+    project: ivolve
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ivolve-app
+  template:
+    metadata:
+      labels:
+        app: ivolve-app
+        project: ivolve
+    spec:
+      # 1. Toleration: Allows the pod to tolerate the workload=ivolveApp:NoSchedule taint
+      tolerations:
+      - key: "workload"
+        operator: "Equal"
+        value: "ivolveApp"
+        effect: "NoSchedule"
+
+      # 2. NodeSelector: Attracts and pins the pod exclusively to the node labeled project=ivolve
+      nodeSelector:
+        project: "ivolve"
+
+      containers:
+      - name: ivolve-service
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
