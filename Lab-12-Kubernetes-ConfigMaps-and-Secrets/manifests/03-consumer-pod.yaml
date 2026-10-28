@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ivolve-config-consumer
+  namespace: ivolve
+  labels:
+    app: ivolve-consumer
+spec:
+  containers:
+    - name: app
+      image: busybox:1.36
+      command: ["sh", "-c", "echo 'Container initialized with ConfigMap and Secret'; sleep 3600"]
+      env:
+        # Values from ConfigMap 'ivolveCM'
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: ivolveCM
+              key: DB_HOST
+        - name: DB_USER
+          valueFrom:
+            configMapKeyRef:
+              name: ivolveCM
+              key: DB_USER
+        # Values from Secret 'ivolveSecret'
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ivolveSecret
+              key: MYSQL_ROOT_PASSWORD
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ivolveSecret
+              key: DB_PASSWORD

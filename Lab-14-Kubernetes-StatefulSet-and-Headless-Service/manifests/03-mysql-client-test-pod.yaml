@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mysql-client-test
+  namespace: ivolve
+  labels:
+    app: mysql-client
+spec:
+  containers:
+    - name: client
+      image: mysql:8.0
+      command:
+        - sh
+        - -c
+        - |
+          echo "Testing MySQL connectivity to ivolveDBSvc..."
+          mysql -h ivolveDBSvc -u "${DB_USER}" -p"${DB_PASSWORD}" "${MYSQL_DATABASE}" -e "
+            CREATE TABLE IF NOT EXISTS cluster_verification (
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              pod_name VARCHAR(100),
+              verified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            INSERT INTO cluster_verification (pod_name) VALUES ('${HOSTNAME}');
+            SELECT * FROM cluster_verification;
+            SHOW TABLES;
+          "
+          echo "MySQL verification query completed successfully!"
+          sleep 3600
+      env:
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: ivolveCM
+              key: DB_HOST
+        - name: DB_USER
+          valueFrom:
+            configMapKeyRef:
+              name: ivolveCM
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ivolveSecret
+              key: DB_PASSWORD
+        - name: MYSQL_DATABASE
+          value: "ivolve"

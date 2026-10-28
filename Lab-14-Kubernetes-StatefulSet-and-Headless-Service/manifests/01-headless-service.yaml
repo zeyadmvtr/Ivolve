@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ivolveDBSvc
+  namespace: ivolve
+  labels:
+    app: ivolve-db
+    app.kubernetes.io/name: ivolve-db
+spec:
+  clusterIP: None
+  ports:
+    - port: 3306
+      name: mysql
+      targetPort: 3306
+  selector:
+    app: ivolve-db

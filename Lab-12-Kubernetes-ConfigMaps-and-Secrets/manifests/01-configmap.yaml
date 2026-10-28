@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ivolveCM
+  namespace: ivolve
+  labels:
+    app.kubernetes.io/part-of: ivolve-platform
+    app.kubernetes.io/component: database-config
+data:
+  DB_HOST: "ivolveDBSvc"
+  DB_USER: "ivolveuser"

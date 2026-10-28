@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: extra-test-pod
+  namespace: ivolve
+  labels:
+    app: extra-test
+spec:
+  containers:
+    - name: busybox
+      image: busybox:1.36
+      command: ["sh", "-c", "sleep 3600"]

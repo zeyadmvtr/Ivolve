@@ -29,6 +29,10 @@ This repository contains complete codebases, multi-stage Dockerfiles, security a
 - [Lab 8: Node.js and MySQL Stack with Docker Compose](#-lab-8-containerized-nodejs-and-mysql-stack-using-docker-compose)
 - [Lab 9: Deploy Kubernetes Cluster using Kubeadm](#-lab-9-deploy-kubernetes-cluster-using-kubeadm)
 - [Lab 10: Node Isolation Using Taints and Labels in Kubernetes](#-lab-10-node-isolation-using-taints-and-labels-in-kubernetes)
+- [Lab 11: Namespace Management and Resource Quota Enforcement](#-lab-11-namespace-management-and-resource-quota-enforcement)
+- [Lab 12: Managing Configuration and Sensitive Data with ConfigMaps and Secrets](#-lab-12-managing-configuration-and-sensitive-data-with-configmaps-and-secrets)
+- [Lab 13: Persistent Storage Setup for Application Logging](#-lab-13-persistent-storage-setup-for-application-logging)
+- [Lab 14: StatefulSet with Headless Service](#-lab-14-statefulset-with-headless-service)
 
 ---
 
@@ -116,6 +120,26 @@ This repository contains complete codebases, multi-stage Dockerfiles, security a
 ├── Lab-10-Kubernetes-Taints-and-Labels/   # Lab 10: Node isolation using taints and labels
 │   ├── manifests/                         # Untolerated, tolerated & dedicated nodeSelector specs
 │   ├── scripts/                           # Apply, test isolation & cleanup scripts
+│   └── README.md
+│
+├── Lab-11-Kubernetes-Namespace-and-ResourceQuota/ # Lab 11: Namespace & ResourceQuota enforcement
+│   ├── manifests/                         # Namespace 'ivolve', ivolveQuota (pods: 3), test workloads
+│   ├── scripts/                           # Setup, verify quota enforcement & cleanup scripts
+│   └── README.md
+│
+├── Lab-12-Kubernetes-ConfigMaps-and-Secrets/     # Lab 12: ConfigMaps and Base64-encoded Secrets
+│   ├── manifests/                         # ConfigMap 'ivolveCM', Secret 'ivolveSecret', consumer pod
+│   ├── scripts/                           # Encode & apply, verify injection & cleanup scripts
+│   └── README.md
+│
+├── Lab-13-Kubernetes-Persistent-Storage/          # Lab 13: Persistent storage for application logging
+│   ├── manifests/                         # PV 'ivolvePV' (1Gi, RWX, hostPath), PVC 'ivolvePVC', log app
+│   ├── scripts/                           # Setup host directory, apply storage, test persistence
+│   └── README.md
+│
+├── Lab-14-Kubernetes-StatefulSet-and-Headless-Service/ # Lab 14: StatefulSet with Headless Service
+│   ├── manifests/                         # Headless service 'ivolveDBSvc', StatefulSet 'ivolveDB', test pods
+│   ├── scripts/                           # Deploy, verify DB connectivity & verify DNS resolution
 │   └── README.md
 │
 └── README.md
@@ -355,6 +379,125 @@ This repository contains complete codebases, multi-stage Dockerfiles, security a
   # 4. Remove taint and label (cleanup)
   kubectl taint nodes <worker-node> workload=ivolveApp:NoSchedule-
   kubectl label nodes <worker-node> project-
+  ```
+
+---
+
+## 🛡️ Lab 11: Namespace Management and Resource Quota Enforcement
+
+👉 **Guide**: [`Lab-11-Kubernetes-Namespace-and-ResourceQuota/README.md`](Lab-11-Kubernetes-Namespace-and-ResourceQuota/README.md)
+
+- **Multi-Tenancy & Quota Concept**: Establishing isolated namespace boundaries and limiting aggregate resource consumption to prevent runaway workloads.
+- **Configuration**:
+  - **Namespace**: `ivolve` (logical isolation of project resources).
+  - **ResourceQuota**: `ivolveQuota` enforcing `hard: pods: "3"`.
+- **Validation Scenarios**:
+  1. **Quota Allocation**: Deploys up to 3 pod replicas within quota capacity.
+  2. **Admission Rejection**: Confirms that Kubernetes API and admission controllers reject 4th pod creation (`forbidden: exceeded quota: ivolveQuota`).
+  3. **Controller Throttling**: Verifies ReplicaSet failure events when attempting to scale beyond the quota limit.
+- **Key Commands**:
+  ```bash
+  cd Lab-11-Kubernetes-Namespace-and-ResourceQuota
+  # 1. Create namespace and apply resource quota
+  kubectl apply -f manifests/01-namespace.yaml
+  kubectl apply -f manifests/02-resource-quota.yaml
+
+  # 2. Inspect quota usage
+  kubectl describe resourcequota ivolveQuota -n ivolve
+
+  # 3. Test quota enforcement (automated script)
+  bash scripts/02-verify-quota.sh
+  ```
+
+---
+
+## 🔐 Lab 12: Managing Configuration and Sensitive Data with ConfigMaps and Secrets
+
+👉 **Guide**: [`Lab-12-Kubernetes-ConfigMaps-and-Secrets/README.md`](Lab-12-Kubernetes-ConfigMaps-and-Secrets/README.md)
+
+- **Configuration Decoupling**: Externalizing non-sensitive environment variables and credentials to adhere to 12-Factor App design and prevent credential leakage.
+- **Configuration**:
+  - **ConfigMap (`ivolveCM`)**: Stores `DB_HOST` (`ivolveDBSvc`) and `DB_USER` (`ivolveuser`).
+  - **Secret (`ivolveSecret`)**: Stores Base64-encoded `MYSQL_ROOT_PASSWORD` and `DB_PASSWORD`.
+- **Validation Scenarios**:
+  1. **Base64 Encoding**: Encodes raw secrets for YAML manifest definition (`echo -n "..." | base64`).
+  2. **Container Injection**: Injects variables via `valueFrom` (`configMapKeyRef` and `secretKeyRef`) into application pods.
+  3. **Runtime Verification**: Inspects container environment variables to verify accurate decryption and values.
+- **Key Commands**:
+  ```bash
+  cd Lab-12-Kubernetes-ConfigMaps-and-Secrets
+  # 1. Apply ConfigMap and Secret
+  kubectl apply -f manifests/01-configmap.yaml
+  kubectl apply -f manifests/02-secret.yaml
+
+  # 2. Verify creation and masked data
+  kubectl describe configmap ivolveCM -n ivolve
+  kubectl describe secret ivolveSecret -n ivolve
+
+  # 3. Verify injection inside consumer pod
+  bash scripts/02-verify-injection.sh
+  ```
+
+---
+
+## 💾 Lab 13: Persistent Storage Setup for Application Logging
+
+👉 **Guide**: [`Lab-13-Kubernetes-Persistent-Storage/README.md`](Lab-13-Kubernetes-Persistent-Storage/README.md)
+
+- **Persistent Volume Architecture**: Setting up durable storage independent of pod lifecycles with multi-pod read/write capabilities (`ReadWriteMany`).
+- **Configuration**:
+  - **PersistentVolume (`ivolvePV`)**: 1Gi capacity, `hostPath: /mnt/app-logs`, `accessModes: [ReadWriteMany]`, `persistentVolumeReclaimPolicy: Retain`, `storageClassName: ""`.
+  - **PersistentVolumeClaim (`ivolvePVC`)**: Requests 1Gi in namespace `ivolve` with matching `ReadWriteMany` mode.
+- **Validation Scenarios**:
+  1. **Volume Binding**: Verifies successful 1:1 binding between `ivolvePV` and `ivolvePVC`.
+  2. **Concurrent Multi-Replica Logging**: Runs 2 replicas writing heartbeat logs concurrently to `/mnt/app-logs/application.log`.
+  3. **Data Retention**: Deletes the deployment and attaches a new pod to confirm historical logs are preserved on the host.
+- **Key Commands**:
+  ```bash
+  cd Lab-13-Kubernetes-Persistent-Storage
+  # 1. Prepare hostPath directory on worker node
+  sudo mkdir -p /mnt/app-logs && sudo chmod 777 /mnt/app-logs
+
+  # 2. Apply PV and PVC
+  kubectl apply -f manifests/01-persistent-volume.yaml
+  kubectl apply -f manifests/02-persistent-volume-claim.yaml
+
+  # 3. Check binding status
+  kubectl get pv ivolvePV
+  kubectl get pvc ivolvePVC -n ivolve
+
+  # 4. Test concurrent logging and persistence
+  bash scripts/03-verify-logging-persistence.sh
+  ```
+
+---
+
+## 🗄️ Lab 14: StatefulSet with Headless Service
+
+👉 **Guide**: [`Lab-14-Kubernetes-StatefulSet-and-Headless-Service/README.md`](Lab-14-Kubernetes-StatefulSet-and-Headless-Service/README.md)
+
+- **Stateful Orchestration**: Deploying a persistent database (MySQL 8.0) leveraging **StatefulSets**, **Headless Services**, dedicated node placement, and dynamic volume claim templates.
+- **Configuration**:
+  - **StatefulSet (`ivolveDB`)**: 1 replica running MySQL 8.0 in namespace `ivolve`.
+  - **Dedicated Placement**: `nodeSelector: project: ivolve` and `toleration: workload=ivolveApp:NoSchedule` (Lab 10).
+  - **Decoupled Config**: Environment variables injected from `ivolveCM` and `ivolveSecret` (Lab 12).
+  - **Storage Template**: `volumeClaimTemplates` mounting `/var/lib/mysql`.
+  - **Headless Service (`ivolveDBSvc`)**: `clusterIP: None` targeting port 3306 for direct pod IP routing without proxy hops.
+- **Validation Scenarios**:
+  1. **Database Operations**: Connects via MySQL client, verifies table creation and record insertion.
+  2. **CoreDNS Service Resolution**: Queries `ivolveDBSvc` to verify direct resolution to the underlying Pod IP.
+  3. **Predictable Pod FQDN**: Resolves `ivolveDB-0.ivolveDBSvc.ivolve.svc.cluster.local`.
+- **Key Commands**:
+  ```bash
+  cd Lab-14-Kubernetes-StatefulSet-and-Headless-Service
+  # 1. Deploy Headless Service and StatefulSet
+  bash scripts/01-deploy-statefulset.sh
+
+  # 2. Verify MySQL operational status and client queries
+  bash scripts/02-verify-database-connection.sh
+
+  # 3. Verify DNS resolution inside cluster
+  bash scripts/03-verify-dns-resolution.sh
   ```
 
 ---

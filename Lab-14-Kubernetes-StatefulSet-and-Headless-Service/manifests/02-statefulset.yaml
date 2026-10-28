@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ivolveDB
+  namespace: ivolve
+  labels:
+    app: ivolve-db
+    app.kubernetes.io/name: ivolve-db
+spec:
+  serviceName: "ivolveDBSvc"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ivolve-db
+  template:
+    metadata:
+      labels:
+        app: ivolve-db
+    spec:
+      # Node Selector targeting isolated worker node from Lab 10
+      nodeSelector:
+        project: ivolve
+      # Toleration allowing scheduling on tainted worker node from Lab 10
+      tolerations:
+        - key: "workload"
+          operator: "Equal"
+          value: "ivolveApp"
+          effect: "NoSchedule"
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3306
+              name: mysql
+          env:
+            # Sensitive Root Password from Secret 'ivolveSecret'
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ivolveSecret
+                  key: MYSQL_ROOT_PASSWORD
+            # Application Database Name
+            - name: MYSQL_DATABASE
+              value: "ivolve"
+            # Application User from ConfigMap 'ivolveCM'
+            - name: MYSQL_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: ivolveCM
+                  key: DB_USER
+            # Application Password from Secret 'ivolveSecret'
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ivolveSecret
+                  key: DB_PASSWORD
+            # Direct mapping of ConfigMap & Secret variables
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: ivolveCM
+                  key: DB_HOST
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: ivolveCM
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ivolveSecret
+                  key: DB_PASSWORD
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+  # Persistent Volume Claim Template for /var/lib/mysql
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: ""
+        resources:
+          requests:
+            storage: 1Gi
