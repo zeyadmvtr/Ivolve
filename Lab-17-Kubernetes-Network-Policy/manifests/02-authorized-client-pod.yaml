@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: authorized-app-client
+  namespace: ivolve
+  labels:
+    # Labeled with 'app: ivolve-app' to match NetworkPolicy ingress selector
+    app: ivolve-app
+spec:
+  containers:
+    - name: client
+      image: busybox:1.36
+      command:
+        - sh
+        - -c
+        - |
+          echo "Testing TCP connectivity from AUTHORIZED pod (app: ivolve-app) to ivolveDBSvc:3306..."
+          nc -z -v -w 5 ivolveDBSvc 3306
+          if [ $? -eq 0 ]; then
+            echo "[SUCCESS] Connection to MySQL port 3306 allowed!"
+          else
+            echo "[-] Connection unexpectedly failed."
+          fi
+          sleep 3600

@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ivolveNP
+  namespace: ivolve
+  labels:
+    app.kubernetes.io/name: ivolve-network-policy
+    app.kubernetes.io/part-of: ivolve-platform
+spec:
+  # Pod Selector targeting MySQL pod from Lab 14
+  podSelector:
+    matchLabels:
+      app: ivolve-db
+  # Policy Types: Only Ingress
+  policyTypes:
+    - Ingress
+  # Ingress Rules:
+  # 1. Allows traffic only from the application pods (labeled 'app: ivolve-app')
+  # 2. Restricts access strictly to port 3306 (MySQL default port)
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: ivolve-app
+      ports:
+        - protocol: TCP
+          port: 3306

@@ -33,6 +33,9 @@ This repository contains complete codebases, multi-stage Dockerfiles, security a
 - [Lab 12: Managing Configuration and Sensitive Data with ConfigMaps and Secrets](#-lab-12-managing-configuration-and-sensitive-data-with-configmaps-and-secrets)
 - [Lab 13: Persistent Storage Setup for Application Logging](#-lab-13-persistent-storage-setup-for-application-logging)
 - [Lab 14: StatefulSet with Headless Service](#-lab-14-statefulset-with-headless-service)
+- [Lab 15: Node.js Application Deployment with ClusterIP Service](#-lab-15-nodejs-application-deployment-with-clusterip-service)
+- [Lab 16: Pod Resource Management with CPU and Memory Requests and Limits](#-lab-16-pod-resource-management-with-cpu-and-memory-requests-and-limits)
+- [Lab 17: Control Pod-to-Pod Traffic via Network Policy](#-lab-17-control-pod-to-pod-traffic-via-network-policy)
 
 ---
 
@@ -140,6 +143,21 @@ This repository contains complete codebases, multi-stage Dockerfiles, security a
 ├── Lab-14-Kubernetes-StatefulSet-and-Headless-Service/ # Lab 14: StatefulSet with Headless Service
 │   ├── manifests/                         # Headless service 'ivolveDBSvc', StatefulSet 'ivolveDB', test pods
 │   ├── scripts/                           # Deploy, verify DB connectivity & verify DNS resolution
+│   └── README.md
+│
+├── Lab-15-Kubernetes-NodeJS-App-Deployment/      # Lab 15: Node.js Deployment with ClusterIP Service
+│   ├── manifests/                         # Service 'ivolveAppSvc', Deployment 'ivolveApp', test pods
+│   ├── scripts/                           # Deploy, verify DB & user privileges, check logs
+│   └── README.md
+│
+├── Lab-16-Kubernetes-Pod-Resource-Management/    # Lab 16: Pod CPU & Memory Requests and Limits
+│   ├── manifests/                         # Updated Deployment (1vCPU/1Gi req, 2vCPU/2Gi lim), load gen
+│   ├── scripts/                           # Apply limits, verify describe pod, monitor top pod
+│   └── README.md
+│
+├── Lab-17-Kubernetes-Network-Policy/             # Lab 17: Zero-trust pod network isolation
+│   ├── manifests/                         # NetworkPolicy 'ivolveNP' (targets mysql, allows app on 3306)
+│   ├── scripts/                           # Apply policy, test authorized vs unauthorized traffic
 │   └── README.md
 │
 └── README.md
@@ -498,6 +516,84 @@ This repository contains complete codebases, multi-stage Dockerfiles, security a
 
   # 3. Verify DNS resolution inside cluster
   bash scripts/03-verify-dns-resolution.sh
+  ```
+
+---
+
+## 🚀 Lab 15: Node.js Application Deployment with ClusterIP Service
+
+👉 **Guide**: [`Lab-15-Kubernetes-NodeJS-App-Deployment/README.md`](Lab-15-Kubernetes-NodeJS-App-Deployment/README.md)
+
+- **Application Orchestration**: Deploys the multi-replica containerized Node.js application (`zeyadmvtr/ivolve-app:latest` from Lab 8) backed by MySQL.
+- **Key Features**:
+  - **Deployment (`ivolveApp`)**: 2 replicas in namespace `ivolve`.
+  - **ClusterIP Service (`ivolveAppSvc`)**: Internal load balancer distributing traffic on port `3000`.
+  - **Init Container (`mysql:8.0`)**: Bootstraps database readiness, creates `ivolve` database, and grants privileges to `ivolveuser`.
+  - **Config & Secrets Injection**: Injects environment variables from `ivolveCM` and `ivolveSecret` (Lab 12).
+  - **Dedicated Worker Placement**: Applies `nodeSelector: project: ivolve` and `toleration: workload=ivolveApp:NoSchedule` (Lab 10).
+  - **Persistent Log Storage**: Mounts `ivolvePVC` (Lab 13) at `/app/logs` for shared HTTP access logging.
+- **Key Commands**:
+  ```bash
+  cd Lab-15-Kubernetes-NodeJS-App-Deployment
+  # 1. Deploy ClusterIP Service and ivolveApp
+  bash scripts/01-deploy-app.sh
+
+  # 2. Verify MySQL database initialization and user privileges
+  bash scripts/02-verify-mysql-db-and-user.sh
+
+  # 3. Check application logs and persistent access logs
+  bash scripts/03-check-app-logs.sh
+  ```
+
+---
+
+## ⚡ Lab 16: Pod Resource Management with CPU and Memory Requests and Limits
+
+👉 **Guide**: [`Lab-16-Kubernetes-Pod-Resource-Management/README.md`](Lab-16-Kubernetes-Pod-Resource-Management/README.md)
+
+- **Compute Capacity & Throttling**: Enforces resource reservation and prevents noisy neighbors via container compute limits.
+- **Resource Constraints**:
+  - **Requests**: `cpu: 1` (1 vCPU), `memory: 1Gi` (Guaranteed scheduling baseline).
+  - **Limits**: `cpu: 2` (2 vCPUs), `memory: 2Gi` (CFS quota ceiling and OOM protection).
+  - **Quality of Service (QoS)**: Automatically classified as **`Burstable`**.
+- **Observability**:
+  - Verifies container specs and QoS class using `kubectl describe pod`.
+  - Monitors real-time container CPU and memory usage using `kubectl top pod` with metrics-server.
+- **Key Commands**:
+  ```bash
+  cd Lab-16-Kubernetes-Pod-Resource-Management
+  # 1. Update deployment with resource requests and limits
+  bash scripts/01-apply-resource-limits.sh
+
+  # 2. Verify applied constraints via kubectl describe pod
+  bash scripts/02-verify-resources.sh
+
+  # 3. Monitor real-time consumption under load via kubectl top pod
+  bash scripts/03-monitor-metrics.sh
+  ```
+
+---
+
+## 🔒 Lab 17: Control Pod-to-Pod Traffic via Network Policy
+
+👉 **Guide**: [`Lab-17-Kubernetes-Network-Policy/README.md`](Lab-17-Kubernetes-Network-Policy/README.md)
+
+- **Zero-Trust Network Isolation**: Enforces kernel-level packet filtering via Calico CNI rules to protect sensitive database pods.
+- **Policy Specifications (`ivolveNP`)**:
+  - **Pod Selector**: Targets MySQL database pod (`app: ivolve-db`).
+  - **Policy Types**: Only `Ingress`.
+  - **Ingress Rule**: Restricts traffic strictly to port `3306` and allows packets **only** from authorized application pods (`app: ivolve-app`).
+- **Validation Scenarios**:
+  1. **Authorized Traffic**: Confirms successful TCP handshake from pods with label `app: ivolve-app`.
+  2. **Unauthorized Traffic**: Confirms connection timeouts and packet drops from unapproved client pods.
+- **Key Commands**:
+  ```bash
+  cd Lab-17-Kubernetes-Network-Policy
+  # 1. Apply NetworkPolicy 'ivolveNP'
+  bash scripts/01-apply-network-policy.sh
+
+  # 2. Test traffic isolation (positive & negative tests)
+  bash scripts/02-test-traffic-isolation.sh
   ```
 
 ---

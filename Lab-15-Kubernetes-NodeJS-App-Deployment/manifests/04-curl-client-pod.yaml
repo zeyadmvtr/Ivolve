@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ivolve-client-tester
+  namespace: ivolve
+  labels:
+    app: client-tester
+spec:
+  containers:
+    - name: curl
+      image: curlimages/curl:8.5.0
+      command:
+        - sh
+        - -c
+        - |
+          echo "Testing HTTP communication to ivolveAppSvc:3000..."
+          curl -s http://ivolveAppSvc:3000/health
+          echo ""
+          curl -s http://ivolveAppSvc:3000/ready
+          echo ""
+          curl -s http://ivolveAppSvc:3000/
+          echo ""
+          sleep 3600

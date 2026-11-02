@@ -1,0 +1,10 @@
+# Optional Production Hardening: Default Deny All Ingress in 'ivolve' namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all-ingress
+  namespace: ivolve
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress

@@ -1,0 +1,32 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ivolve-load-generator
+  namespace: ivolve
+  labels:
+    app: load-generator
+spec:
+  template:
+    metadata:
+      labels:
+        app: load-generator
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: load-generator
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Starting HTTP load generation against ivolveAppSvc:3000..."
+              for i in $(seq 1 500); do
+                wget -q -O- http://ivolveAppSvc:3000/health > /dev/null 2>&1 || true
+                wget -q -O- http://ivolveAppSvc:3000/ready > /dev/null 2>&1 || true
+                wget -q -O- http://ivolveAppSvc:3000/ > /dev/null 2>&1 || true
+              done
+              echo "Completed 500 requests per loop. Keeping load active..."
+              while true; do
+                wget -q -O- http://ivolveAppSvc:3000/ > /dev/null 2>&1 || true
+                sleep 0.1
+              done

@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ivolveAppSvc
+  namespace: ivolve
+  labels:
+    app: ivolve-app
+    app.kubernetes.io/name: ivolve-app
+    app.kubernetes.io/part-of: ivolve-platform
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+      protocol: TCP
+  selector:
+    app: ivolve-app

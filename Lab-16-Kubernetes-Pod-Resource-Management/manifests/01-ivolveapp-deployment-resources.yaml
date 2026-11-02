@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ivolveApp
+  namespace: ivolve
+  labels:
+    app: ivolve-app
+    app.kubernetes.io/name: ivolve-app
+    app.kubernetes.io/part-of: ivolve-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ivolve-app
+  template:
+    metadata:
+      labels:
+        app: ivolve-app
+        app.kubernetes.io/name: ivolve-app
+    spec:
+      nodeSelector:
+        project: ivolve
+      tolerations:
+        - key: "workload"
+          operator: "Equal"
+          value: "ivolveApp"
+          effect: "NoSchedule"
+      initContainers:
+        - name: init-mysql-db
+          image: mysql:8.0
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
+          env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: ivolveCM
+                  key: DB_HOST
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: ivolveCM
+                  key: DB_USER
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ivolveSecret
+                  key: MYSQL_ROOT_PASSWORD
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ivolveSecret
+                  key: DB_PASSWORD
+          command:
+            - sh
+            - -c
+            - |
+              until mysql -h "${DB_HOST}" -u root -p"${MYSQL_ROOT_PASSWORD}" -e "SELECT 1;" > /dev/null 2>&1; do
+                sleep 2
+              done
+              mysql -h "${DB_HOST}" -u root -p"${MYSQL_ROOT_PASSWORD}" <<EOF
+              CREATE DATABASE IF NOT EXISTS ivolve;
+              CREATE USER IF NOT EXISTS '${DB_USER}'@'%' IDENTIFIED BY '${DB_PASSWORD}';
+              ALTER USER '${DB_USER}'@'%' IDENTIFIED BY '${DB_PASSWORD}';
+              GRANT ALL PRIVILEGES ON ivolve.* TO '${DB_USER}'@'%';
+              FLUSH PRIVILEGES;
+              EOF
+      containers:
+        - name: ivolve-app
+          image: zeyadmvtr/ivolve-app:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+          # Lab 16 Resource Requests and Limits
+          resources:
+            requests:
+              cpu: "1"        # 1 vCPU
+              memory: "1Gi"   # 1 GiB
+            limits:
+              cpu: "2"        # 2 vCPUs
+              memory: "2Gi"   # 2 GiB
+          env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: ivolveCM
+                  key: DB_HOST
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: ivolveCM
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ivolveSecret
+                  key: DB_PASSWORD
+            - name: DB_NAME
+              value: "ivolve"
+            - name: PORT
+              value: "3000"
+          volumeMounts:
+            - name: app-logs-volume
+              mountPath: /app/logs
+      volumes:
+        - name: app-logs-volume
+          persistentVolumeClaim:
+            claimName: ivolvePVC
