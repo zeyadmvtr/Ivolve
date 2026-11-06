@@ -1,0 +1,73 @@
+@Library('ivolve-shared-library') _
+
+pipeline {
+    // Configured to execute on dedicated Jenkins Slave Agent Node
+    agent {
+        node {
+            label 'slave-node'
+        }
+    }
+
+    environment {
+        REPO_URL           = 'https://github.com/Ibrahim-Adel15/DemoApp.git'
+        DOCKER_HUB_USER    = 'zeyadmvtr'
+        IMAGE_NAME         = "${DOCKER_HUB_USER}/demoapp"
+        IMAGE_TAG          = "${BUILD_NUMBER}"
+        FULL_IMAGE         = "${IMAGE_NAME}:${IMAGE_TAG}"
+        DOCKER_CREDENTIALS = 'dockerhub-credentials'
+        K8S_NAMESPACE      = 'ivolve'
+    }
+
+    stages {
+        stage('Checkout Source Code') {
+            steps {
+                echo ">>> [Slave Agent] Cloning DemoApp repository on agent worker node..."
+                git branch: 'main', url: "${REPO_URL}"
+            }
+        }
+
+        stage('1. Build App') {
+            steps {
+                // Call Shared Library 'buildApp'
+                buildApp(skipTests: false)
+            }
+        }
+
+        stage('2. Build, Scan & Publish Image') {
+            steps {
+                // Call Shared Library 'buildImage'
+                buildImage(
+                    imageName: "${DOCKER_HUB_USER}/demoapp",
+                    imageTag: "${IMAGE_TAG}",
+                    credentialsId: "${DOCKER_CREDENTIALS}"
+                )
+            }
+        }
+
+        stage('3. Deploy on Kubernetes') {
+            steps {
+                // Call Shared Library 'deployOnK8s'
+                deployOnK8s(
+                    manifestPath: 'k8s/deployment.yaml',
+                    fullImage: "${FULL_IMAGE}",
+                    namespace: "${K8S_NAMESPACE}"
+                )
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "=========================================================="
+            echo ">>> Pipeline execution complete on Slave Agent 'slave-node'"
+            echo "=========================================================="
+            cleanWs deleteDirs: true, notFailBuild: true
+        }
+        success {
+            echo ">>> [SUCCESS] Build #${BUILD_NUMBER} deployed successfully via Shared Libraries!"
+        }
+        failure {
+            echo ">>> [FAILURE] Build #${BUILD_NUMBER} failed! Check slave agent logs."
+        }
+    }
+}

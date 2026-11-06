@@ -1,0 +1,19 @@
+services:
+  jenkins:
+    image: jenkins/jenkins:lts-jdk17
+    container_name: jenkins-rbac
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    environment:
+      - CASC_JENKINS_CONFIG=/var/jenkins_home/casc_configs/jenkins.yaml
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+    volumes:
+      - ./configs/jenkins.yaml:/var/jenkins_home/casc_configs/jenkins.yaml:ro
+      - ./init.groovy.d:/usr/share/jenkins/ref/init.groovy.d:ro
+      - jenkins_home:/var/jenkins_home
+
+volumes:
+  jenkins_home:
+    name: jenkins_rbac_home

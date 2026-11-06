@@ -1,0 +1,34 @@
+jenkins:
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "user1"
+          name: "Admin User"
+          password: "user1Pass2026!"
+        - id: "user2"
+          name: "Read-Only User"
+          password: "user2Pass2026!"
+        - id: "admin"
+          name: "Default Admin"
+          password: "adminRoot2026!"
+
+  authorizationStrategy:
+    roleBased:
+      roles:
+        global:
+          - name: "admin"
+            description: "Full administrative access across Jenkins"
+            permissions:
+              - "Overall/Administer"
+            entries:
+              - user: "user1"
+              - user: "admin"
+          - name: "read-only"
+            description: "Read-only access to view jobs and system status"
+            permissions:
+              - "Overall/Read"
+              - "Job/Read"
+              - "View/Read"
+            entries:
+              - user: "user2"

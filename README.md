@@ -36,6 +36,12 @@ This repository contains complete codebases, multi-stage Dockerfiles, security a
 - [Lab 15: Node.js Application Deployment with ClusterIP Service](#-lab-15-nodejs-application-deployment-with-clusterip-service)
 - [Lab 16: Pod Resource Management with CPU and Memory Requests and Limits](#-lab-16-pod-resource-management-with-cpu-and-memory-requests-and-limits)
 - [Lab 17: Control Pod-to-Pod Traffic via Network Policy](#-lab-17-control-pod-to-pod-traffic-via-network-policy)
+- [Lab 18: Node-Wide Pod Management with DaemonSet](#-lab-18-node-wide-pod-management-with-daemonset)
+- [Lab 19: Securing Kubernetes with RBAC and Service Accounts](#-lab-19-securing-kubernetes-with-rbac-and-service-accounts)
+- [Lab 20: Role-Based Authorization in Jenkins](#-lab-20-role-based-authorization-in-jenkins)
+- [Lab 21: Jenkins Pipeline for Application Deployment](#-lab-21-jenkins-pipeline-for-application-deployment)
+- [Lab 22: CI/CD Pipeline Implementation with Jenkins Agents and Shared Libraries](#-lab-22-cicd-pipeline-implementation-with-jenkins-agents-and-shared-libraries)
+- [Lab 23: Implementing a GitOps Workflow with Jenkins and Argo CD](#-lab-23-implementing-a-gitops-workflow-with-jenkins-and-argo-cd)
 
 ---
 
@@ -158,6 +164,43 @@ This repository contains complete codebases, multi-stage Dockerfiles, security a
 ├── Lab-17-Kubernetes-Network-Policy/             # Lab 17: Zero-trust pod network isolation
 │   ├── manifests/                         # NetworkPolicy 'ivolveNP' (targets mysql, allows app on 3306)
 │   ├── scripts/                           # Apply policy, test authorized vs unauthorized traffic
+│   └── README.md
+│
+├── Lab-18-Kubernetes-Prometheus-Grafana-DaemonSet/ # Lab 18: Monitoring stack with DaemonSet
+│   ├── manifests/                         # Node Exporter DaemonSet, Prometheus, Alertmanager, Grafana
+│   ├── scripts/                           # Deploy, verify DaemonSet on each node, check metrics
+│   └── README.md
+│
+├── Lab-19-Kubernetes-RBAC-ServiceAccounts/        # Lab 19: Kubernetes RBAC & least privilege CI/CD
+│   ├── manifests/                         # ServiceAccount 'jenkinsSA', token, ivolveDeployRole & binding
+│   ├── scripts/                           # Setup RBAC, generate kubeconfig, validate auth can-i
+│   └── README.md
+│
+├── Lab-20-Jenkins-Role-Based-Authorization/       # Lab 20: Jenkins Role-Based Strategy (user1/user2)
+│   ├── configs/                           # JCasC YAML, plugin dependencies
+│   ├── init.groovy.d/                     # Automated Groovy user & role setup script
+│   ├── scripts/                           # Start Jenkins, verify admin vs read-only API access
+│   ├── docker-compose.yml                 # Containerized Jenkins environment
+│   └── README.md
+│
+├── Lab-21-Jenkins-CI-CD-Pipeline/                 # Lab 21: End-to-end Declarative CI/CD pipeline
+│   ├── k8s/                               # DemoApp deployment and service manifests
+│   ├── scripts/                           # Pipeline simulation script (7 processes + post actions)
+│   ├── Jenkinsfile                        # Declarative pipeline (Build, Docker, Trivy, Deploy)
+│   └── README.md
+│
+├── Lab-22-Jenkins-Agents-and-Shared-Libraries/    # Lab 22: Distributed agents & Shared Libraries
+│   ├── shared-library/vars/               # Reusable modules: buildApp, buildImage, deployOnK8s
+│   ├── agent-setup/                       # Dockerfile and compose for 'slave-node' build agent
+│   ├── k8s/                               # Deployment manifests
+│   ├── Jenkinsfile                        # Pipeline consuming @Library on 'slave-node'
+│   └── README.md
+│
+├── Lab-23-GitOps-ArgoCD-and-Jenkins/              # Lab 23: Declarative GitOps CD with Argo CD
+│   ├── manifests/                         # Argo CD App 'ivolve', repo secret, tracked app manifests
+│   ├── shared-library/vars/               # deployOnK8s (GitOps push to GitHub)
+│   ├── scripts/                           # Install Argo CD, access UI, create app, verify sync
+│   ├── Jenkinsfile                        # GitOps hand-off pipeline
 │   └── README.md
 │
 └── README.md
@@ -594,6 +637,154 @@ This repository contains complete codebases, multi-stage Dockerfiles, security a
 
   # 2. Test traffic isolation (positive & negative tests)
   bash scripts/02-test-traffic-isolation.sh
+  ```
+
+---
+
+## 📊 Lab 18: Node-Wide Pod Management with DaemonSet
+
+👉 **Guide**: [`Lab-18-Kubernetes-Prometheus-Grafana-DaemonSet/README.md`](Lab-18-Kubernetes-Prometheus-Grafana-DaemonSet/README.md)
+
+- **Cluster Observability Stack**: Complete infrastructure and node monitoring using **Prometheus**, **Alertmanager**, **Grafana**, and a **Node Exporter DaemonSet**.
+- **Key Milestones**:
+  - **Monitoring Namespace**: Isolated `monitoring` namespace.
+  - **Node Exporter DaemonSet**: Runs with host filesystem access on **all** cluster nodes (including tainted and master nodes).
+  - **Metrics Exposure**: Confirmed hardware metrics available at `<node_IP>:9100/metrics`.
+  - **Prometheus Scraping**: Auto-discovers and scrapes cluster nodes and services.
+  - **Grafana Dashboard**: Auto-provisions Prometheus datasource and renders Kubernetes metrics via Community Dashboard **1860**.
+- **Key Commands**:
+  ```bash
+  cd Lab-18-Kubernetes-Prometheus-Grafana-DaemonSet
+  # 1. Deploy Monitoring Stack
+  bash scripts/01-deploy-monitoring.sh
+
+  # 2. Validate DaemonSet scheduling & metrics exposure
+  bash scripts/02-verify-node-exporter.sh
+
+  # 3. Query Prometheus metrics & access Grafana UI
+  bash scripts/03-verify-metrics-and-prometheus.sh
+  ```
+
+---
+
+## 🛡️ Lab 19: Securing Kubernetes with RBAC and Service Accounts
+
+👉 **Guide**: [`Lab-19-Kubernetes-RBAC-ServiceAccounts/README.md`](Lab-19-Kubernetes-RBAC-ServiceAccounts/README.md)
+
+- **Least-Privilege Security**: Establishes scoped access controls for CI/CD automation using Kubernetes **RBAC**, **ServiceAccounts**, **Roles**, and **RoleBindings**.
+- **Key Configuration**:
+  - **ServiceAccount**: `jenkinsSA` in namespace `ivolve`.
+  - **Token Generation**: Ephemeral (`kubectl create token`) and persistent token secret (`jenkins-sa-token`).
+  - **Role (`ivolveDeployRole`)**: Restricted strictly to create and update operations on Deployments in `ivolve`.
+  - **RoleBinding (`ivolveDeployRoleBinding`)**: Associates `ivolveDeployRole` with `jenkinsSA`.
+- **Validation**:
+  - Verified via `kubectl auth can-i`: can create/update deployments in `ivolve` (YES), cannot delete or access secrets/other namespaces (NO).
+- **Key Commands**:
+  ```bash
+  cd Lab-19-Kubernetes-RBAC-ServiceAccounts
+  # 1. Setup RBAC resources
+  bash scripts/01-setup-rbac.sh
+
+  # 2. Extract token and generate Jenkins Kubeconfig
+  bash scripts/02-generate-token-kubeconfig.sh
+
+  # 3. Validate permissions with auth can-i
+  bash scripts/03-validate-rbac-permissions.sh
+  ```
+
+---
+
+## 👥 Lab 20: Role-Based Authorization in Jenkins
+
+👉 **Guide**: [`Lab-20-Jenkins-Role-Based-Authorization/README.md`](Lab-20-Jenkins-Role-Based-Authorization/README.md)
+
+- **Jenkins Access Governance**: Enforces fine-grained user roles using the **Role-Based Authorization Strategy** plugin and **Jenkins Configuration as Code (JCasC)**.
+- **Roles & User Setup**:
+  - `user1`: Assigned **admin** role with full administrative privileges (`Overall/Administer`).
+  - `user2`: Assigned **read-only** role with dashboard and job viewing permissions (`Overall/Read`, `Job/Read`).
+- **Validation**:
+  - Confirmed via automated API tests: `user1` accesses `/manage` (HTTP 200); `user2` is rejected with **HTTP 403 Forbidden**.
+- **Key Commands**:
+  ```bash
+  cd Lab-20-Jenkins-Role-Based-Authorization
+  # 1. Start Jenkins container with RBAC
+  bash scripts/01-start-jenkins.sh
+
+  # 2. Test API permissions (admin vs read-only)
+  bash scripts/02-verify-roles.sh
+  ```
+
+---
+
+## 🚀 Lab 21: Jenkins Pipeline for Application Deployment
+
+👉 **Guide**: [`Lab-21-Jenkins-CI-CD-Pipeline/README.md`](Lab-21-Jenkins-CI-CD-Pipeline/README.md)
+
+- **End-to-End Declarative CI/CD**: Automates source compilation, containerization, security scanning, and Kubernetes deployment for Java Spring Boot (`DemoApp`).
+- **7 Automated Pipeline Stages**:
+  1. **Build App**: `mvn clean package`
+  2. **Build Docker Image**: `docker build -t zeyadmvtr/demoapp:${BUILD_NUMBER} .`
+  3. **Scan Docker Image**: `trivy image --severity HIGH,CRITICAL`
+  4. **Push to DockerHub**: `docker push zeyadmvtr/demoapp:${BUILD_NUMBER}`
+  5. **Delete Local Image**: `docker rmi zeyadmvtr/demoapp:${BUILD_NUMBER}`
+  6. **Update Deployment Manifest**: Dynamically updates image tag in `k8s/deployment.yaml`
+  7. **Deploy to Kubernetes**: `kubectl apply -f k8s/` in namespace `ivolve`
+- **Post Actions**: Automated handling for `always` (workspace cleanup), `success`, and `failure`.
+- **Key Commands**:
+  ```bash
+  cd Lab-21-Jenkins-CI-CD-Pipeline
+  # Run pipeline simulation locally
+  bash scripts/01-run-pipeline-simulation.sh
+  ```
+
+---
+
+## 🧩 Lab 22: CI/CD Pipeline Implementation with Jenkins Agents and Shared Libraries
+
+👉 **Guide**: [`Lab-22-Jenkins-Agents-and-Shared-Libraries/README.md`](Lab-22-Jenkins-Agents-and-Shared-Libraries/README.md)
+
+- **Modular & Distributed Architecture**: Refactors CI/CD pipelines into enterprise **Shared Libraries** executing on dedicated **Distributed Jenkins Slave Agents**.
+- **3 Shared Libraries**:
+  - `buildApp`: Handles unit testing and Maven packaging.
+  - `buildImage`: Handles container builds, Trivy CVE scans, Docker Hub push, and local cache pruning.
+  - `deployOnK8s`: Handles manifest image patching and Kubernetes rollout monitoring.
+- **Worker Node**: Jenkins slave agent container configured with label `slave-node`.
+- **Key Commands**:
+  ```bash
+  cd Lab-22-Jenkins-Agents-and-Shared-Libraries
+  # 1. Launch Jenkins Slave Agent node
+  bash scripts/01-setup-agent.sh
+
+  # 2. Verify shared library modules
+  bash scripts/02-test-shared-libraries.sh
+  ```
+
+---
+
+## 🔄 Lab 23: Implementing a GitOps Workflow with Jenkins and Argo CD
+
+👉 **Guide**: [`Lab-23-GitOps-ArgoCD-and-Jenkins/README.md`](Lab-23-GitOps-ArgoCD-and-Jenkins/README.md)
+
+- **Declarative GitOps Delivery**: Combines Jenkins CI with **Argo CD** to implement continuous delivery driven entirely through Git commits.
+- **Key Workflow**:
+  - **Argo CD Operator**: Installed in `argocd` namespace; exposed via NodePort `30443`.
+  - **Application `ivolve`**: Tracks GitHub repo path `Lab-23-GitOps-ArgoCD-and-Jenkins/manifests/app`.
+  - **Automated Sync**: Configured with `prune: true` and `selfHeal: true`.
+  - **GitOps Jenkins Step**: `deployOnK8s` commits updated image tags directly to GitHub (`git push`), allowing Argo CD to automatically detect drift and reconcile cluster workloads.
+- **Key Commands**:
+  ```bash
+  cd Lab-23-GitOps-ArgoCD-and-Jenkins
+  # 1. Install Argo CD
+  bash scripts/01-install-argocd.sh
+
+  # 2. Retrieve initial admin password & UI URL
+  bash scripts/02-access-argocd-ui.sh
+
+  # 3. Connect repo & create Argo CD application
+  bash scripts/03-create-argocd-app.sh
+
+  # 4. Verify GitOps sync and deployed container images
+  bash scripts/04-verify-gitops-sync.sh
   ```
 
 ---

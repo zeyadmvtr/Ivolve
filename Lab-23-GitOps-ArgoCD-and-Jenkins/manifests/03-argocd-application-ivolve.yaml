@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ivolve
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: ivolve-gitops
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/zeyadmvtr/Ivolve.git
+    targetRevision: main
+    path: Lab-23-GitOps-ArgoCD-and-Jenkins/manifests/app
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ivolve
+  # Automatic Synchronization Configuration
+  syncPolicy:
+    automated:
+      prune: true     # Automatically prune resources removed from Git
+      selfHeal: true  # Automatically revert manual drift made directly in the cluster
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true

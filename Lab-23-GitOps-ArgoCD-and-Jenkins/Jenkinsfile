@@ -1,0 +1,66 @@
+@Library('ivolve-shared-library') _
+
+pipeline {
+    agent any
+
+    environment {
+        REPO_URL           = 'https://github.com/Ibrahim-Adel15/DemoApp.git'
+        DOCKER_HUB_USER    = 'zeyadmvtr'
+        IMAGE_NAME         = "${DOCKER_HUB_USER}/demoapp"
+        IMAGE_TAG          = "v${BUILD_NUMBER}"
+        FULL_IMAGE         = "${IMAGE_NAME}:${IMAGE_TAG}"
+        DOCKER_CREDENTIALS = 'dockerhub-credentials'
+        GITHUB_CREDENTIALS = 'github-pat-credentials'
+        MANIFEST_PATH      = 'Lab-23-GitOps-ArgoCD-and-Jenkins/manifests/app/deployment.yaml'
+    }
+
+    stages {
+        stage('1. Build Application') {
+            steps {
+                echo ">>> Building and compiling DemoApp..."
+                // Invokes BuildApp shared library
+                buildApp(skipTests: false)
+            }
+        }
+
+        stage('2. Build, Scan & Publish Docker Image') {
+            steps {
+                echo ">>> Building container image, scanning with Trivy, and pushing to DockerHub..."
+                // Invokes BuildImage shared library
+                buildImage(
+                    imageName: "${IMAGE_NAME}",
+                    imageTag: "${IMAGE_TAG}",
+                    credentialsId: "${DOCKER_CREDENTIALS}"
+                )
+            }
+        }
+
+        stage('3. GitOps Hand-off: Push Updates to Git') {
+            steps {
+                echo ">>> Executing GitOps deploy step: updating Git repository manifest..."
+                // Invokes modified deployOnK8s GitOps library to push commit to GitHub
+                deployOnK8s(
+                    manifestPath: "${MANIFEST_PATH}",
+                    fullImage: "${FULL_IMAGE}",
+                    gitBranch: 'main',
+                    gitCredsId: "${GITHUB_CREDENTIALS}"
+                )
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "=========================================================="
+            echo ">>> GitOps Pipeline Execution Completed for ${FULL_IMAGE}"
+            echo "=========================================================="
+            cleanWs deleteDirs: true, notFailBuild: true
+        }
+        success {
+            echo ">>> [SUCCESS] Manifest pushed to Git. Argo CD is reconciling the cluster!"
+        }
+        failure {
+            echo ">>> [FAILURE] Pipeline failed! Review console output."
+        }
+    }
+}

@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ivolve-gitops-app
+  namespace: ivolve
+  labels:
+    app: ivolve-gitops-app
+    app.kubernetes.io/name: ivolve-gitops-app
+    app.kubernetes.io/part-of: ivolve-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ivolve-gitops-app
+  template:
+    metadata:
+      labels:
+        app: ivolve-gitops-app
+    spec:
+      containers:
+        - name: app
+          image: zeyadmvtr/demoapp:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

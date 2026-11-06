@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ivolveDeployRole
+  namespace: ivolve
+  labels:
+    app.kubernetes.io/name: ivolve-deploy-role
+rules:
+  # Grant create, update, and read permissions on Deployments
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
